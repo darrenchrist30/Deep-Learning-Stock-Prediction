@@ -31,21 +31,90 @@
         </div>
       </div>
 
-      <div class="row">
+      <div class="row mb-4">
         <div class="col-12">
-          <div class="card shadow-lg border-0 rounded-lg mb-4">
-            <div class="card-header bg-primary text-white">
+          <div class="card shadow-lg border-0 rounded-lg">
+            <div
+              class="card-header bg-primary text-white d-flex justify-content-between align-items-center"
+            >
               <h4 class="text-center font-weight-bold my-2">
                 Price Prediction Visualization
               </h4>
+              <button
+                class="btn btn-sm btn-light"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#customPlotForm"
+              >
+                Custom Plot
+              </button>
+            </div>
+            <div class="collapse" id="customPlotForm">
+              <div class="card-body bg-light">
+                <div class="row">
+                  <div class="col-md-4">
+                    <div class="form-group mb-3">
+                      <label for="historicalDays">Historical Days:</label>
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="historicalDays"
+                        value="15"
+                        min="1"
+                        max="365"
+                      />
+                      <small class="text-muted"
+                        >Days of historical data to show</small
+                      >
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="form-group mb-3">
+                      <label for="predictionDays">Prediction Days:</label>
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="predictionDays"
+                        value="30"
+                        min="1"
+                        max="90"
+                      />
+                      <small class="text-muted"
+                        >Days to predict (max 90 days)</small
+                      >
+                    </div>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-end">
+                    <button
+                      type="button"
+                      id="updatePlot"
+                      class="btn btn-primary mb-3"
+                    >
+                      Update Plot
+                    </button>
+                  </div>
+                </div>
+                <div id="customPlotAlert" class="alert alert-info d-none">
+                  Generating custom plot...
+                </div>
+              </div>
             </div>
             <div class="card-body">
-              <div class="text-center">
-                <img
-                  src="data:image/png;base64,{{ plot_data }}"
-                  class="img-fluid"
-                  alt="Stock Price Prediction Plot"
-                />
+              <div id="plotContainer" class="text-center">
+                <!-- Default plot displayed initially -->
+                <div id="defaultPlot">
+                  {% if plot_html %} {{ plot_html|safe }} {% else %}
+                  <div class="alert alert-info">No plot data available</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div
+                id="customPlotContainer"
+                class="text-center"
+                style="display: none"
+              >
+                <!-- Custom plot will be loaded here via AJAX -->
+                <div class="custom-plot-placeholder"></div>
               </div>
             </div>
           </div>
@@ -118,6 +187,8 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    <!-- Plotly.js for interactive charts -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script>
       // Parse JSON data from Flask - using single quotes to avoid JSON escaping issues
       let resultsData, futureData;
@@ -235,5 +306,316 @@
       });
     </script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
+    <!-- Custom prediction script -->
+    <script>
+      // Handle custom prediction plot
+      document.addEventListener("DOMContentLoaded", function () {
+        const updatePlotBtn = document.getElementById("updatePlot");
+        const historicalDaysInput = document.getElementById("historicalDays");
+        const predictionDaysInput = document.getElementById("predictionDays");
+        const customPlotAlert = document.getElementById("customPlotAlert");
+        const customPlotContainer = document.getElementById(
+          "customPlotContainer"
+        );
+        const plotContainer = document.getElementById("plotContainer");
+        const defaultPlot = document.getElementById("defaultPlot");
+
+        console.log("DOM elements loaded:", {
+          updatePlotBtn: !!updatePlotBtn,
+          historicalDaysInput: !!historicalDaysInput,
+          predictionDaysInput: !!predictionDaysInput,
+          customPlotAlert: !!customPlotAlert,
+          customPlotContainer: !!customPlotContainer,
+          plotContainer: !!plotContainer,
+          defaultPlot: !!defaultPlot,
+        });
+
+        // Create a function to handle plot rendering
+        function createPlotlyPlot(plotData, container) {
+          try {
+            // Clear the container
+            container.innerHTML = '';
+            
+            // Create plot container
+            const plotContainer = document.createElement('div');
+            plotContainer.style.width = '100%';
+            plotContainer.style.height = '600px';
+            container.appendChild(plotContainer);
+            
+            // Parse the HTML to extract the Plotly data and layout
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = plotData;
+            
+            // Try to evaluate any script content from the HTML
+            const scriptContent = tempDiv.querySelector('script');
+            if (scriptContent) {
+              // Create and execute the script in the global context
+              const scriptEl = document.createElement('script');
+              scriptEl.textContent = scriptContent.textContent;
+              document.head.appendChild(scriptEl);
+              console.log("Script from Plotly HTML executed");
+            } else {
+              console.log("No script found in Plotly HTML");
+            }
+            
+            // If direct script execution doesn't work, insert the HTML directly
+            container.innerHTML = plotData;
+          } catch (error) {
+            console.error("Error creating Plotly plot:", error);
+            container.innerHTML = `<div class="alert alert-danger">Error rendering plot: ${error.message}</div>`;
+          }
+        }
+
+        if (updatePlotBtn) {
+          updatePlotBtn.addEventListener("click", function () {
+            console.log("Update Plot button clicked");
+
+            // Get input values
+            const historicalDays = parseInt(historicalDaysInput.value) || 15;
+            const predictionDays = parseInt(predictionDaysInput.value) || 30;
+            console.log("Input values:", historicalDays, predictionDays);
+
+            // Validate input
+            if (historicalDays < 1) {
+              alert("Historical days must be at least 1");
+              return;
+            }
+
+            if (predictionDays < 1 || predictionDays > 90) {
+              alert("Prediction days must be between 1 and 90");
+              return;
+            }
+
+            // Show loading message with spinner
+            customPlotAlert.innerHTML = `
+              <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <span>Generating custom plot... Please wait.</span>
+              </div>
+            `;
+            customPlotAlert.classList.remove("d-none", "alert-danger");
+            customPlotAlert.classList.add("alert-info", "d-block");
+
+            // Also update the button to show loading state
+            updatePlotBtn.disabled = true;
+            updatePlotBtn.innerHTML = `
+              <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              Generating...
+            `;
+
+            // Make AJAX request
+            console.log("Sending request to /custom_prediction");
+            fetch("/custom_prediction", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                historical_days: historicalDays,
+                prediction_days: predictionDays,
+                stock_symbol: "{{ stock_symbol }}",
+              }),
+            })
+              .then((response) => {
+                console.log("Response received:", response.status);
+                return response.json();
+              })
+              .then((data) => {
+                console.log("Data received:", data.success, data.message);
+
+                if (data.success) {
+                  // Hide default plot
+                  if (defaultPlot) defaultPlot.style.display = "none";
+
+                  // Create a fresh container for the custom plot to avoid any rendering issues
+                  if (customPlotContainer) {
+                    // First clear the container
+                    customPlotContainer.innerHTML = "";
+
+                    // Create a new div for the plot
+                    const newPlotDiv = document.createElement("div");
+                    newPlotDiv.id = "custom-plotly-" + new Date().getTime();
+                    newPlotDiv.className = "plotly-container";
+                    customPlotContainer.appendChild(newPlotDiv);
+
+                    // Make the container visible - important!
+                    customPlotContainer.style.display = "block";
+
+                    if (defaultPlot) {
+                      defaultPlot.style.display = "none";
+                    }
+
+                    // Check if we actually received any HTML content
+                    console.log(
+                      "Plot HTML content type:",
+                      typeof data.plot_html
+                    );
+                    console.log(
+                      "Plot HTML content first 100 chars:",
+                      data.plot_html
+                        ? data.plot_html.substring(0, 100)
+                        : "EMPTY"
+                    );
+
+                    // Insert the HTML into the new div
+                    if (data.plot_html && data.plot_html.length > 0) {
+                      // Just use direct HTML injection for Plotly
+                      // This preserves any script tags and initialization code
+                      newPlotDiv.innerHTML = data.plot_html;
+                      console.log("Injected Plotly HTML directly");
+                      
+                      // Execute any script tags that might have been added
+                      const scripts = newPlotDiv.getElementsByTagName("script");
+                      for (let i = 0; i < scripts.length; i++) {
+                        const script = scripts[i];
+                        const newScript = document.createElement("script");
+                        // Copy all attributes
+                        Array.from(script.attributes).forEach(attr => {
+                          newScript.setAttribute(attr.name, attr.value);
+                        });
+                        // Copy content
+                        newScript.innerHTML = script.innerHTML;
+                        // Replace the old script with the new one
+                        script.parentNode.replaceChild(newScript, script);
+                      }
+
+                      console.log(
+                        "Custom plot HTML injected into fresh container, length:",
+                        data.plot_html.length
+                      );
+
+                      // Debug output of container
+                      console.log(
+                        "Container now contains:",
+                        newPlotDiv.childNodes.length,
+                        "child nodes"
+                      );
+                      console.log(
+                        "Container visibility:",
+                        getComputedStyle(customPlotContainer).display
+                      );
+                    } else {
+                      console.error("Received empty plot HTML");
+                      newPlotDiv.innerHTML =
+                        "<div class='alert alert-warning'>Error: Received empty plot data</div>";
+                    }
+                  } else {
+                    console.error("customPlotContainer element not found");
+                    // As a fallback, replace the entire plot container
+                    if (plotContainer) {
+                      plotContainer.innerHTML = data.plot_html;
+                      console.log("Fallback: replaced entire plot container");
+                    }
+                  }
+
+                  // Hide alert and restore button
+                  if (customPlotAlert) customPlotAlert.classList.add("d-none");
+                  // Restore the button
+                  updatePlotBtn.disabled = false;
+                  updatePlotBtn.innerHTML = "Update Plot";
+
+                  // Force Plotly to resize the plot to fit the container
+                  if (window.Plotly) {
+                    // Use multiple timeouts to ensure rendering completes
+                    setTimeout(() => {
+                      const plotlyElements = document.querySelectorAll(
+                        ".js-plotly-plot, .plotly-graph-div"
+                      );
+                      if (plotlyElements.length > 0) {
+                        console.log(
+                          "Resizing Plotly plots:",
+                          plotlyElements.length
+                        );
+                        plotlyElements.forEach((plot) => {
+                          try {
+                            window.Plotly.Plots.resize(plot);
+                            console.log("Successfully resized plot:", plot.id);
+                          } catch (e) {
+                            console.error("Error resizing plot:", e);
+                          }
+                        });
+                      } else {
+                        console.warn("No Plotly elements found to resize");
+                      }
+
+                      // Try again a bit later to ensure rendering
+                      setTimeout(() => {
+                        const plotlyElements = document.querySelectorAll(
+                          ".js-plotly-plot, .plotly-graph-div"
+                        );
+                        if (plotlyElements.length > 0) {
+                          console.log("Final resize attempt for Plotly plots");
+                          plotlyElements.forEach((plot) => {
+                            try {
+                              window.Plotly.Plots.resize(plot);
+                            } catch (e) {
+                              console.error("Error in final resize:", e);
+                            }
+                          });
+                        }
+                      }, 500);
+                    }, 100);
+                  } else {
+                    console.error(
+                      "Plotly library not loaded! Adding script tag dynamically."
+                    );
+                    // Try to load Plotly dynamically as a fallback
+                    const plotlyScript = document.createElement("script");
+                    plotlyScript.src =
+                      "https://cdn.plot.ly/plotly-latest.min.js";
+                    plotlyScript.onload = () => {
+                      console.log(
+                        "Plotly loaded dynamically, refreshing plot..."
+                      );
+                      setTimeout(() => {
+                        document
+                          .querySelectorAll(".plotly-graph-div")
+                          .forEach((plot) => {
+                            window.Plotly.Plots.resize(plot);
+                          });
+                      }, 300);
+                    };
+                    document.head.appendChild(plotlyScript);
+                  }
+                } else {
+                  // Show error
+                  if (customPlotAlert) {
+                    customPlotAlert.textContent = data.message;
+                    customPlotAlert.classList.remove("alert-info");
+                    customPlotAlert.classList.add("alert-danger", "d-block");
+                  } else {
+                    console.error("Error:", data.message);
+                    alert("Error: " + data.message);
+                  }
+
+                  // Restore the button
+                  updatePlotBtn.disabled = false;
+                  updatePlotBtn.innerHTML = "Update Plot";
+                }
+              })
+              .catch((error) => {
+                console.error("Error in fetch operation:", error);
+                if (customPlotAlert) {
+                  customPlotAlert.textContent =
+                    "Error generating custom plot. Please try again.";
+                  customPlotAlert.classList.remove("alert-info", "d-none");
+                  customPlotAlert.classList.add("alert-danger", "d-block");
+                } else {
+                  alert("Error generating custom plot: " + error.message);
+                }
+
+                // Restore the button
+                updatePlotBtn.disabled = false;
+                updatePlotBtn.innerHTML = "Update Plot";
+              });
+          });
+        } else {
+          console.error("Update Plot button not found");
+        }
+      });
+    </script>
   </body>
 </html>

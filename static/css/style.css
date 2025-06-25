@@ -77,9 +77,37 @@ body {
   color: #fff !important;
 }
 
+/* Plotly Containers */
+.plotly-container {
+  width: 100%;
+  height: 600px;
+  position: relative;
+}
+
+.plotly-graph-div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#customPlotContainer {
+  width: 100%;
+  min-height: 600px;
+}
+
+/* Ensure plotly is visible */
+.js-plotly-plot,
+.plot-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .container {
     padding: 10px;
+  }
+
+  .plotly-container {
+    height: 400px;
   }
 }

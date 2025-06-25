@@ -13,6 +13,10 @@ from tensorflow.keras.models import load_model
 import pickle
 import json
 import matplotlib.pyplot as plt
+import plotly
+import plotly.graph_objs as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 from io import BytesIO
 import base64
 import glob
@@ -20,6 +24,11 @@ import re
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "saham-prediction-app"
+
+# Dictionary to store the last uploaded CSV path
+global_data = {
+    'last_csv_path': None
+}
 
 # Create directories if they don't exist
 os.makedirs('models', exist_ok=True)
@@ -416,6 +425,403 @@ def create_plot(results, future_results):
     
     return plot_data
 
+def create_interactive_plot(results, future_results, stock_symbol="Stock"):
+    """Create interactive plot using Plotly"""
+    try:
+        # Create the figure directly - cleaner than using subplots
+        fig = go.Figure()
+        
+        # Add historical actual prices
+        fig.add_trace(go.Scatter(
+            x=results['Date'],
+            y=results['Actual'],
+            mode='lines',
+            name='Actual Price',
+            line=dict(color='#4169E1', width=2), # Royal blue to match
+            hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
+                         '<b>Actual Price:</b> %{y:.2f}<br>' +
+                         '<extra></extra>'
+        ))
+        
+        # Add historical predicted prices
+        fig.add_trace(go.Scatter(
+            x=results['Date'],
+            y=results['Predicted'],
+            mode='lines',
+            name='Predicted Price (Historical)',
+            line=dict(color='#9370DB', width=2), # Medium purple
+            hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
+                         '<b>Predicted Price:</b> %{y:.2f}<br>' +
+                         '<extra></extra>'
+        ))
+        
+        # Add future predictions
+        fig.add_trace(go.Scatter(
+            x=future_results['Date'],
+            y=future_results['Predicted'],
+            mode='lines',
+            name='Future Prediction',
+            line=dict(color='#FF4500', width=2), # OrangeRed
+            hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
+                         '<b>Predicted Price:</b> %{y:.2f}<br>' +
+                         '<extra></extra>'
+        ))
+        
+        # Update layout to match reference style
+        fig.update_layout(
+            title=f'{stock_symbol} - Stock Price Prediction',
+            xaxis_title='Date',
+            yaxis_title='Stock price',
+            hovermode='x unified',
+            height=600,
+            legend=dict(
+                title="Close Price",
+                y=0.99,
+                x=1.0,
+                xanchor='right',
+                yanchor='top',
+                bgcolor='rgba(255,255,255,0.8)', 
+                bordercolor='rgba(0,0,0,0.2)',
+                borderwidth=1
+            ),
+            margin=dict(l=60, r=60, t=60, b=60),
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        
+        # Configure axes to match the reference style
+        fig.update_xaxes(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray',
+            tickangle=0,
+            dtick='M1', # Show approximately monthly ticks
+            tickformat='%b %d\n%Y' # Format dates as "Jun 15 2025" with year on new line
+        )
+        
+        fig.update_yaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='lightgray'
+        )
+        
+        # Convert to HTML with improved config
+        plot_html = plotly.io.to_html(
+            fig, 
+            include_plotlyjs='cdn', 
+            full_html=False,
+            config={'responsive': True, 'displayModeBar': True}
+        )
+        
+        return plot_html
+        
+    except Exception as e:
+        print(f"Error creating interactive plot: {str(e)}")
+        return f"<div class='alert alert-danger'>Error creating interactive plot: {str(e)}</div>"
+
+def create_custom_interactive_plot(data, historical_days, prediction_days, stock_symbol="Stock"):
+    """Create interactive plot comparing last X days with next Y days prediction - following Google Colab approach"""
+    try:
+        print(f"Creating custom plot with {historical_days} historical days and {prediction_days} prediction days")
+        
+        # Make sure 'Date' is in datetime format
+        data['Date'] = pd.to_datetime(data['Date'])
+        print(f"Data shape: {data.shape}, Date range: {data['Date'].min()} to {data['Date'].max()}")
+        
+        # Sort data by date to ensure correct order
+        data = data.sort_values('Date')
+        
+        # Prepare data for prediction - use all data to maintain consistency
+        # Debug the available columns in case of confusion
+        print(f"Available columns: {data.columns.tolist()}")
+        
+        # Debug the columns in data to better understand what we're working with
+        print(f"DEBUG: Data columns before processing: {data.columns.tolist()}")
+        
+        # By this point, 'Close' column should be available from the preprocessing in custom_prediction endpoint
+        # Double-check that we have the 'Close' column
+        if 'Close' not in data.columns:
+            print("WARNING: 'Close' column not found in data, looking for alternatives")
+            
+            # Check for lowercase 'close'
+            if 'close' in data.columns:
+                print("Found lowercase 'close' column, renaming it to 'Close'")
+                data.rename(columns={'close': 'Close'}, inplace=True)
+            # Check for 'Price' column
+            elif 'Price' in data.columns:
+                print("Using 'Price' column for prediction as 'Close' is not available")
+                data.rename(columns={'Price': 'Close'}, inplace=True)
+            else:
+                # Last resort - try to find any price-related column
+                columns_lower = [col.lower() for col in data.columns]
+                potential_price_cols = [col for col, lower_col in zip(data.columns, columns_lower) 
+                                       if lower_col in ['close', 'price', 'adj close', 'adjusted close']]
+                if potential_price_cols:
+                    col = potential_price_cols[0]
+                    print(f"Using '{col}' as the price data")
+                    data.rename(columns={col: 'Close'}, inplace=True)
+                else:
+                    raise ValueError(f"Could not find a suitable price column in the data. Available columns: {data.columns.tolist()}")
+        else:
+            print("'Close' column already exists in the data")
+                
+        print(f"DEBUG: Data columns after processing: {data.columns.tolist()}")
+        print(f"DEBUG: First few values of 'Close': {data['Close'].head().tolist()}")
+                
+        # Use the 'Close' column for prediction
+        close_data = data['Close'].values.reshape(-1, 1)
+        scaled_data = scaler.transform(close_data)
+        print(f"Scaled data shape: {scaled_data.shape}, using standardized 'Close' column")
+        
+        # Generate predictions for future days using the same logic as main prediction
+        sequence_length = 60
+        last_sequence = scaled_data[-sequence_length:].reshape(1, sequence_length, 1)
+        
+        # Generate future predictions
+        future_predictions = []
+        current_sequence = last_sequence.copy()
+        
+        for i in range(prediction_days):
+            next_pred = model.predict(current_sequence, verbose=0)
+            
+            # Extract the predicted value
+            if len(next_pred.shape) == 3:
+                value = next_pred[0, -1, 0]
+            elif len(next_pred.shape) == 2:
+                value = next_pred[0, 0]
+            else:
+                value = next_pred[0]
+            
+            future_predictions.append(value)
+            
+            # Update sequence for next prediction
+            current_sequence = np.append(current_sequence[:, 1:, :], 
+                                        np.array([[[value]]]), 
+                                        axis=1)
+        
+        print(f"Generated {len(future_predictions)} future predictions")
+        
+        # Following Google Colab approach more precisely
+        # Step 1: Create arrays for day indices (like the Google Colab example)
+        sequence_length = 60  # This should match your model's requirements
+        last_days = np.arange(1, historical_days + 1)
+        day_pred = np.arange(historical_days + 1, historical_days + prediction_days + 1)
+        print(f"Last days indices: {last_days}")
+        print(f"Prediction days indices: {day_pred}")
+        
+        # Step 2: Create temp matrix with the correct dimensions
+        total_length = historical_days + prediction_days + 1
+        temp_mat = np.empty((total_length, 1))
+        temp_mat[:] = np.nan
+        temp_mat = temp_mat.reshape(1, -1).tolist()[0]
+        
+        # Step 3: Prepare data arrays exactly like in the Google Colab example
+        last_original_days_value = temp_mat.copy()
+        next_predicted_days_value = temp_mat.copy()
+        
+        # Step 4: Fill historical data (matching the Colab example)
+        # Make sure we have enough data for the historical days
+        available_historical = min(historical_days + 1, len(scaled_data))
+        print(f"Available historical days: {available_historical} out of {historical_days + 1} requested")
+        
+        # Get the available historical days from the data
+        historical_scaled = scaled_data[-available_historical:]
+        historical_original = scaler.inverse_transform(historical_scaled).flatten()
+        
+        # Fill the array with the available data
+        last_original_days_value[0:available_historical] = historical_original
+        print(f"Filled {len(historical_original)} historical values")
+        
+        # Step 5: Fill future predictions (matching the Colab example)
+        future_predictions_original = scaler.inverse_transform(
+            np.array(future_predictions).reshape(-1, 1)
+        ).flatten()
+        next_predicted_days_value[historical_days + 1:] = future_predictions_original
+        print(f"Filled {len(future_predictions_original)} future prediction values")
+        
+        # Create dates array - using the same logic as the Google Colab approach
+        last_date = data['Date'].iloc[-1]
+        print(f"Last date in data: {last_date}")
+        
+        # Create date range exactly like in the Colab example
+        # This creates dates including historical days and extending to future prediction days
+        all_dates = pd.date_range(
+            end=last_date + pd.Timedelta(days=prediction_days - 1),  # Match the Colab calculation
+            periods=total_length
+        )
+        print(f"Created date range from {all_dates[0]} to {all_dates[-1]} for {len(all_dates)} periods")
+        
+        print(f"Created date range from {all_dates[0]} to {all_dates[-1]} ({len(all_dates)} dates)")
+        print(f"Historical values: {len([x for x in last_original_days_value if not pd.isna(x)])}")
+        print(f"Future values: {len([x for x in next_predicted_days_value if not pd.isna(x)])}")
+        
+        # Create a DataFrame like in the Google Colab example
+        from itertools import cycle
+        
+        new_pred_plot = pd.DataFrame({
+            'last_original_days_value': last_original_days_value,
+            'next_predicted_days_value': next_predicted_days_value,
+            'date': all_dates
+        })
+        
+        # Print the DataFrame head for debugging
+        print("Created DataFrame with shape:", new_pred_plot.shape)
+        print(new_pred_plot.head())
+        
+        # Use the Google Colab approach for creating the plot
+        names = cycle([f'Last {historical_days} days close price', f'Predicted next {prediction_days} days close price'])
+        
+        # Create the figure using px.line like in the Colab example, with more explicit setup
+        fig = px.line(
+            new_pred_plot,
+            x='date',
+            y=['last_original_days_value', 'next_predicted_days_value'],
+            labels={'value': 'Stock price', 'date': 'Date'},
+            line_shape='linear', 
+            render_mode='svg'  # Use SVG for better quality
+        )
+        
+        # Update trace names and style to match the cycle (just like in Colab)
+        # Also set different colors and line styles for historical vs prediction data
+        fig.for_each_trace(lambda t: t.update(
+            name=next(names), 
+            line=dict(
+                width=2, 
+                color='blue' if 'last_original' in t.name else 'red',
+                dash=None if 'last_original' in t.name else 'dot'
+            )
+        ))
+        
+        # Add transition markers at the connection point between historical and predicted data
+        # Calculate the indices where historical data ends and prediction begins
+        historical_end_idx = historical_days
+        prediction_start_idx = historical_days + 1
+        
+        # Add markers if we have valid values at these points
+        if (not pd.isna(last_original_days_value[historical_end_idx]) and 
+            not pd.isna(next_predicted_days_value[prediction_start_idx])):
+            
+            transition_dates = [all_dates[historical_end_idx], all_dates[prediction_start_idx]]
+            transition_values = [
+                last_original_days_value[historical_end_idx], 
+                next_predicted_days_value[prediction_start_idx]
+            ]
+            
+            # Add markers as additional trace
+            fig.add_trace(go.Scatter(
+                x=transition_dates,
+                y=transition_values,
+                mode='markers',
+                marker=dict(size=8, color='rgba(0, 0, 0, 0.7)'),
+                name='Transition Points',
+                hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
+                             '<b>Price:</b> %{y:.2f}<br>' +
+                             '<extra></extra>'
+            ))
+        
+        # Update layout with improved settings for better rendering - following Colab style more closely
+        fig.update_layout(
+            title={
+                'text': f'Stock Price: Last {historical_days} Days vs Next {prediction_days} Days Prediction',
+                'font': {'size': 20, 'color': 'darkblue', 'family': 'Arial, sans-serif'},
+                'x': 0.5,  # Center the title
+                'xanchor': 'center'
+            },
+            xaxis_title={'text': 'Date', 'font': {'size': 14, 'color': 'darkblue'}},
+            yaxis_title={'text': 'Stock Price', 'font': {'size': 14, 'color': 'darkblue'}},
+            hovermode='x unified',
+            height=600,
+            legend=dict(
+                title={'text': 'Close Price', 'font': {'size': 12}},
+                y=0.99,
+                x=0.99,
+                xanchor='right',
+                yanchor='top',
+                bgcolor='rgba(255,255,255,0.9)', 
+                bordercolor='rgba(0,0,0,0.2)',
+                borderwidth=1,
+                orientation='v'
+            ),
+            margin=dict(l=60, r=40, t=80, b=60),  # Increase top margin for title
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font={'family': 'Arial, sans-serif'},
+            autosize=True
+        )
+        
+        # Ensure the X-axis is formatted as dates
+        fig.update_xaxes(
+            type='date',
+            tickformat='%Y-%m-%d',
+            tickangle=45,
+            rangeslider_visible=False
+        )
+        
+        # Configure axes
+        fig.update_xaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='lightgray',
+            tickangle=0
+        )
+        
+        fig.update_yaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='lightgray'
+        )
+        
+        # Generate a unique ID for this plot
+        import uuid
+        plot_id = f"custom-plotly-{uuid.uuid4().hex[:8]}"
+        
+        # Convert to HTML with responsive settings and custom div ID
+        plot_html = plotly.io.to_html(
+            fig, 
+            include_plotlyjs=True,  # Include the Plotly.js library to ensure it works consistently
+            full_html=False,        # Don't generate a complete HTML document
+            div_id=plot_id,         # Use the custom ID
+            config={
+                'responsive': True,         # Make it responsive
+                'displayModeBar': True,     # Show the mode bar
+                'showSendToCloud': False,   # Hide the cloud upload button
+                'scrollZoom': True,         # Enable scroll to zoom
+                'modeBarButtonsToRemove': ['lasso2d', 'select2d'], # Remove unnecessary buttons
+                'toImageButtonOptions': {    # Configure the download button
+                    'format': 'png',
+                    'filename': f'{stock_symbol}_prediction',
+                    'scale': 2
+                }
+            }
+        )
+        
+        # Ensure the plot has a specific height and width
+        plot_html = plot_html.replace('style="', 'style="width:100%; height:600px; ')
+        
+        # Add a container div to make styling easier
+        plot_html = f'<div class="plot-container" style="width:100%; max-width:100%; margin:0 auto;">{plot_html}</div>'
+        
+        # Debug the HTML output size
+        print(f"Generated custom plot HTML with {len(plot_html)} characters")
+        print(f"First 100 chars of HTML: {plot_html[:100]}")
+        print(f"Plot ID: {plot_id}")
+        
+        # Add debug information about data used for plotting
+        print(f"DEBUG: Final plot data summary:")
+        print(f"- Historical values: {len([x for x in last_original_days_value if not pd.isna(x)])}")
+        print(f"- Prediction values: {len([x for x in next_predicted_days_value if not pd.isna(x)])}")
+        print(f"- Date range: {all_dates[0]} to {all_dates[-1]}")
+        print(f"- First few historical values: {[x for x in last_original_days_value[:5] if not pd.isna(x)]}")
+        print(f"- Last few prediction values: {[x for x in next_predicted_days_value[-5:] if not pd.isna(x)]}")
+        
+        return plot_html
+        
+    except Exception as e:
+        print(f"Error creating custom interactive plot: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return f"<div class='alert alert-danger'>Error creating custom interactive plot: {str(e)}</div>"
+
 @app.route('/')
 def index():
     # Get list of available models
@@ -446,6 +852,9 @@ def upload_file():
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
+        
+        # Store the CSV path in the global data
+        global_data['last_csv_path'] = filepath
         
         try:
             # Check if model is loaded
@@ -585,9 +994,10 @@ def upload_file():
             # Make predictions
             results, future_results = make_predictions(stock_data)
             
-            # Create plot
-            plot_data = create_plot(results, future_results)
-              # Prepare data for display with safer JSON handling
+            # Create interactive plot with Plotly
+            plot_html = create_interactive_plot(results, future_results, stock_symbol)
+            
+            # Prepare data for display with safer JSON handling
             import json
             
             # Convert to Python lists/dicts first, then JSON 
@@ -603,7 +1013,7 @@ def upload_file():
             
             return render_template('prediction.html', 
                                   stock_symbol=stock_symbol,
-                                  plot_data=plot_data,
+                                  plot_html=plot_html,  # Use the interactive plot HTML
                                   results=results_json,
                                   future_results=future_json)
         
@@ -705,7 +1115,239 @@ def upload_model():
     
     return redirect('/')
 
+@app.route('/custom_prediction', methods=['POST'])
+def custom_prediction():
+    """Handle custom prediction requests with dynamic historical and future days"""
+    try:
+        data = request.get_json()
+        
+        # Get parameters from request
+        historical_days = int(data.get('historical_days', 15))
+        prediction_days = int(data.get('prediction_days', 30))
+        stock_symbol = data.get('stock_symbol', 'Stock')
+        
+        print(f"\n--- Custom Prediction Request ---")
+        print(f"Historical days: {historical_days}, Prediction days: {prediction_days}")
+        print(f"Stock symbol: {stock_symbol}")
+        
+        # Validate parameters
+        if historical_days < 1:
+            historical_days = 15  # Default
+        
+        if prediction_days < 1 or prediction_days > 90:
+            prediction_days = 30  # Default, max 90 days (3 months)
+        
+        # Get the CSV file path from global data or use the most recent file
+        if global_data.get('last_csv_path'):
+            csv_path = global_data['last_csv_path']
+            print(f"Using stored CSV path: {csv_path}")
+        else:
+            # Find the most recent CSV file in the uploads folder
+            csv_files = glob.glob(os.path.join(app.config['UPLOAD_FOLDER'], '*.csv'))
+            if not csv_files:
+                print("No CSV files found in uploads directory")
+                return jsonify({
+                    'success': False,
+                    'message': 'No CSV file found. Please upload a CSV file first.'
+                })
+            # Sort by modification time (most recent first)
+            csv_path = max(csv_files, key=os.path.getmtime)
+            print(f"Using most recent CSV file: {csv_path}")
+        
+        # Load the CSV file
+        stock_data = pd.read_csv(csv_path)
+        print(f"Loaded CSV data with shape: {stock_data.shape}")
+        print(f"CSV columns: {stock_data.columns.tolist()}")
+        
+        # Process the file similar to upload route
+        try:
+            # Check for special CSV formats (like the BBRI format)
+            # Check if we need to skip some header rows
+            if stock_data.shape[1] < 2 or 'date' not in ' '.join(stock_data.columns).lower():
+                # Try to find the header row by checking the first few rows
+                print("CSV format doesn't match expectations, checking for special format...")
+                header_row = None
+                for row_idx in range(min(10, len(stock_data))):
+                    row_values = [str(val).lower() if isinstance(val, str) else "" for val in stock_data.iloc[row_idx].values]
+                    if 'date' in row_values or 'time' in row_values:
+                        header_row = row_idx
+                        print(f"Found header row at index {header_row}")
+                        break
+                
+                if header_row is not None:
+                    # Reload the CSV skipping rows until the header
+                    stock_data = pd.read_csv(csv_path, skiprows=header_row)
+                    print(f"Reloaded CSV with header row {header_row}. New shape: {stock_data.shape}")
+                    print(f"New columns: {stock_data.columns.tolist()}")
+            
+            # Look for Date and Close columns (case insensitive)
+            columns_lower = [col.lower() for col in stock_data.columns]
+            
+            # Print all columns for debugging
+            print(f"Original columns: {stock_data.columns.tolist()}")
+            
+            # Handle date column
+            if 'date' in columns_lower:
+                date_col = stock_data.columns[columns_lower.index('date')]
+                stock_data.rename(columns={date_col: 'Date'}, inplace=True)
+                print(f"Renamed '{date_col}' to 'Date'")
+                
+            # Handle different CSV formats - AAPL_sample.csv vs bbri.csv
+            print("==== COLUMN HANDLING FOR CSV FILE ====")
+            print(f"Original columns: {stock_data.columns.tolist()}")
+            print(f"Lowercase columns: {columns_lower}")
+            
+            # Handle the date column first
+            if 'Date' not in stock_data.columns and 'date' in columns_lower:
+                date_col = stock_data.columns[columns_lower.index('date')]
+                stock_data.rename(columns={date_col: 'Date'}, inplace=True)
+                print(f"Renamed '{date_col}' to 'Date'")
+            
+            # Special handling for price columns
+            # AAPL_sample.csv has 'Close' column
+            # bbri.csv has both 'Price' and 'close' columns
+            
+            # First try for 'Close' with capital C (AAPL_sample.csv)
+            if 'Close' in stock_data.columns:
+                print(f"Found 'Close' column, using it directly")
+            
+            # For bbri.csv format:
+            else:
+                # CRITICAL FIX: In bbri.csv, 'close' is more accurate than 'Price'
+                if 'close' in columns_lower:
+                    close_col = stock_data.columns[columns_lower.index('close')]
+                    stock_data.rename(columns={close_col: 'Close'}, inplace=True)
+                    print(f"Renamed '{close_col}' to 'Close'")
+                
+                # If we still don't have 'Close', try 'Price'
+                elif 'Price' in stock_data.columns or 'price' in columns_lower:
+                    price_col = 'Price' if 'Price' in stock_data.columns else stock_data.columns[columns_lower.index('price')]
+                    stock_data.rename(columns={price_col: 'Close'}, inplace=True)
+                    print(f"Used '{price_col}' as Close column")
+                
+                # Last resort - try any column with price-related name
+                else:
+                    potential_cols = [col for col in stock_data.columns 
+                                    if any(price_term in col.lower() 
+                                          for price_term in ['price', 'close', 'value', 'adj'])]
+                    
+                    if potential_cols:
+                        stock_data.rename(columns={potential_cols[0]: 'Close'}, inplace=True)
+                        print(f"Last resort: Used '{potential_cols[0]}' as Close column")
+                    else:
+                        print("ERROR: Could not find a suitable price column")
+                
+            # Print columns after renaming
+            print(f"Columns after renaming: {stock_data.columns.tolist()}")
+            
+            # Convert Date to datetime
+            stock_data['Date'] = pd.to_datetime(stock_data['Date'], errors='coerce')
+            before_dropna = len(stock_data)
+            stock_data = stock_data.dropna(subset=['Date']).reset_index(drop=True)
+            after_dropna = len(stock_data)
+            if before_dropna != after_dropna:
+                print(f"Dropped {before_dropna - after_dropna} rows with invalid dates")
+            
+            # Ensure Close is numeric
+            stock_data['Close'] = pd.to_numeric(stock_data['Close'], errors='coerce')
+            before_dropna = len(stock_data)
+            stock_data = stock_data.dropna(subset=['Close']).reset_index(drop=True)
+            after_dropna = len(stock_data)
+            if before_dropna != after_dropna:
+                print(f"Dropped {before_dropna - after_dropna} rows with invalid prices")
+            
+            # Check we have enough data
+            if len(stock_data) < 61:  # Need at least sequence_length + 1
+                print(f"Not enough data for prediction: {len(stock_data)} rows")
+                return jsonify({
+                    'success': False,
+                    'message': f'Not enough data for prediction. Need at least 61 rows, but got {len(stock_data)}.'
+                })
+            
+            # Sort data by date to ensure correct order
+            stock_data = stock_data.sort_values('Date').reset_index(drop=True)
+            print(f"Processed data shape: {stock_data.shape}")
+            print(f"Date range: {stock_data['Date'].min()} to {stock_data['Date'].max()}")
+            print(f"Close price range: {stock_data['Close'].min()} to {stock_data['Close'].max()}")
+            
+            # Create custom interactive plot
+            plot_html = create_custom_interactive_plot(stock_data, historical_days, prediction_days, stock_symbol)
+            
+            # Check if the plot was generated successfully
+            if plot_html.startswith("<div class='alert alert-danger'>"):
+                print("Error in plot generation")
+                return jsonify({
+                    'success': False,
+                    'message': plot_html
+                })
+            
+            print("Custom plot created successfully")
+            
+            # Make sure we're not sending empty HTML
+            if not plot_html or len(plot_html.strip()) == 0:
+                print("Warning: Empty plot HTML generated")
+                return jsonify({
+                    'success': False,
+                    'message': 'Error: Failed to generate plot (empty HTML returned)'
+                })
+            
+            # Include extra debugging information in the response
+            print(f"SUCCESS: Plot HTML generated with {len(plot_html)} characters")
+            print(f"HTML begins with: {plot_html[:100] if len(plot_html) > 0 else 'EMPTY'}")
+            return jsonify({
+                'success': True,
+                'plot_html': plot_html,
+                'html_length': len(plot_html),
+                'message': f'Custom plot created for last {historical_days} days vs next {prediction_days} days'
+            })
+            
+        except Exception as e:
+            print(f"ERROR processing data: {str(e)}")
+            import traceback
+            trace = traceback.format_exc()
+            print(trace)
+            return jsonify({
+                'success': False,
+                'message': f'Error processing data: {str(e)}',
+                'traceback': trace
+            })
+    
+    except Exception as e:
+        print(f"Server error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Server error: {str(e)}'
+        })
+
 if __name__ == '__main__':
     # Try to load model on startup
-    load_saved_model()
-    app.run(debug=True, port=5000)
+    try:
+        load_saved_model()
+        print("Model loaded successfully on startup.")
+    except Exception as e:
+        print(f"Warning: Could not load model on startup. Error: {str(e)}")
+    
+    # Clear port information before starting
+    print("\n" + "="*50)
+    print("Starting Flask server...")
+    print("="*50)
+    
+    # Run the Flask app with specific host and debug information
+    try:
+        print("Server will be accessible at: http://127.0.0.1:5000")
+        print("Press CTRL+C to quit the server")
+        print("="*50 + "\n")
+        app.run(debug=True, port=5000, host='127.0.0.1')
+    except Exception as e:
+        print(f"Error starting Flask server: {str(e)}")
+        
+        # Try fallback port if 5000 is already in use
+        try:
+            print("\nTrying alternative port 5001...")
+            print("Server will be accessible at: http://127.0.0.1:5001")
+            app.run(debug=True, port=5001, host='127.0.0.1')
+        except Exception as e2:
+            print(f"Error starting Flask server on fallback port: {str(e2)}")
+            print("Please check if another application is using these ports.")
