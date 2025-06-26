@@ -16,32 +16,116 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+    <!-- Custom styles for Plotly charts -->
+    <style>
+      /* Reset spacing in the page */
+      body {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+      }
+
+      /* Remove default spacings for main container */
+      .container {
+        margin-top: 0 !important;
+        padding-top: 5px !important;
+      }
+
+      /* Reduce spacing between elements */
+      .mb-4 {
+        margin-bottom: 0.5rem !important;
+      }
+
+      /* Minimize form container heights */
+      #customPlotForm .card-body {
+        padding: 0.5rem !important;
+      }
+
+      /* Compact header */
+      .card-header {
+        padding: 0.5rem !important;
+      }
+
+      /* Ensure plotly charts are properly sized */
+      .plot-container {
+        margin-bottom: 10px !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+      }
+
+      /* Make sure the x-axis tick labels are fully visible */
+      .xtick text {
+        text-anchor: end !important;
+      }
+
+      /* Optimize plot container height */
+      #plotContainer,
+      #customPlotContainer {
+        min-height: 500px !important;
+        max-height: 550px !important;
+        margin-top: 0 !important;
+        margin-bottom: 5px !important;
+        padding-bottom: 0 !important;
+      }
+
+      /* Force Plotly to appear immediately */
+      .js-plotly-plot,
+      .plotly-graph-div {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+      }
+
+      /* Card body should have minimal padding */
+      .card-body {
+        padding: 0.5rem !important;
+      }
+
+      /* Prediction tables styling */
+      #prediction-tables {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+      }
+
+      /* Ensure tables appear immediately below the plot */
+      #prediction-tables .card {
+        margin-top: 0 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+      }
+
+      /* Clean up data tables appearance */
+      .dataTables_wrapper {
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      /* Ensure pagination is compact */
+      .dataTables_paginate {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0 !important;
+        font-size: 0.8rem !important;
+      }
+    </style>
   </head>
   <body>
-    <div class="container mt-5">
-      <div class="row">
-        <div class="col-12 mb-4">
-          <div class="d-flex justify-content-between align-items-center">
-            <h2>
-              Stock Price Prediction Results:
-              <span class="text-primary">{{ stock_symbol }}</span>
-            </h2>
-            <a href="/" class="btn btn-outline-primary">Back to Home</a>
-          </div>
-        </div>
+    <div class="container mt-0">
+      <!-- Compact header with title and back button -->
+      <div class="d-flex justify-content-between align-items-center py-1">
+        <h5 class="mb-0">
+          Stock Price Prediction:
+          <span class="text-primary">{{ stock_symbol }}</span>
+        </h5>
+        <a href="/" class="btn btn-sm btn-outline-primary">Back</a>
       </div>
 
-      <div class="row mb-4">
+      <!-- Main content with minimal spacing -->
+      <div class="row mb-1">
         <div class="col-12">
-          <div class="card shadow-lg border-0 rounded-lg">
+          <div class="card shadow-sm border-0 rounded-lg">
             <div
-              class="card-header bg-primary text-white d-flex justify-content-between align-items-center"
+              class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-1"
             >
-              <h4 class="text-center font-weight-bold my-2">
-                Price Prediction Visualization
-              </h4>
+              <h6 class="mb-0 fw-bold">Price Prediction Visualization</h6>
               <button
-                class="btn btn-sm btn-light"
+                class="btn btn-sm btn-light py-0"
                 type="button"
                 data-bs-toggle="collapse"
                 data-bs-target="#customPlotForm"
@@ -50,57 +134,73 @@
               </button>
             </div>
             <div class="collapse" id="customPlotForm">
-              <div class="card-body bg-light">
-                <div class="row">
+              <div class="card-body bg-light py-1 px-2">
+                <div class="row g-1">
                   <div class="col-md-4">
-                    <div class="form-group mb-3">
-                      <label for="historicalDays">Historical Days:</label>
+                    <div class="d-flex align-items-center">
+                      <label
+                        for="historicalDays"
+                        class="me-2 mb-0 small"
+                        style="width: 85px"
+                        >Historical:</label
+                      >
                       <input
                         type="number"
-                        class="form-control"
+                        class="form-control form-control-sm"
                         id="historicalDays"
                         value="15"
                         min="1"
                         max="365"
                       />
-                      <small class="text-muted"
-                        >Days of historical data to show</small
-                      >
                     </div>
                   </div>
                   <div class="col-md-4">
-                    <div class="form-group mb-3">
-                      <label for="predictionDays">Prediction Days:</label>
+                    <div class="d-flex align-items-center">
+                      <label
+                        for="predictionDays"
+                        class="me-2 mb-0 small"
+                        style="width: 85px"
+                        >Prediction:</label
+                      >
                       <input
                         type="number"
-                        class="form-control"
+                        class="form-control form-control-sm"
                         id="predictionDays"
                         value="30"
                         min="1"
                         max="90"
                       />
-                      <small class="text-muted"
-                        >Days to predict (max 90 days)</small
-                      >
                     </div>
                   </div>
-                  <div class="col-md-4 d-flex align-items-end">
+                  <div class="col-md-4">
                     <button
                       type="button"
                       id="updatePlot"
-                      class="btn btn-primary mb-3"
+                      class="btn btn-sm btn-primary py-1"
                     >
                       Update Plot
                     </button>
                   </div>
                 </div>
-                <div id="customPlotAlert" class="alert alert-info d-none">
+                <div
+                  id="customPlotAlert"
+                  class="alert alert-info py-1 px-2 mt-1 mb-0 small d-none"
+                >
                   Generating custom plot...
                 </div>
               </div>
             </div>
-            <div class="card-body">
-              <div id="plotContainer" class="text-center">
+            <div class="card-body p-0">
+              <div
+                id="plotContainer"
+                class="text-center"
+                style="
+                  min-height: 500px;
+                  max-height: 550px;
+                  margin: 0;
+                  padding: 0;
+                "
+              >
                 <!-- Default plot displayed initially -->
                 <div id="defaultPlot">
                   {% if plot_html %} {{ plot_html|safe }} {% else %}
@@ -111,7 +211,13 @@
               <div
                 id="customPlotContainer"
                 class="text-center"
-                style="display: none"
+                style="
+                  display: none;
+                  min-height: 500px;
+                  max-height: 550px;
+                  margin: 0;
+                  padding: 0;
+                "
               >
                 <!-- Custom plot will be loaded here via AJAX -->
                 <div class="custom-plot-placeholder"></div>
@@ -121,19 +227,18 @@
         </div>
       </div>
 
-      <div class="row">
-        <div class="col-md-6">
-          <div class="card shadow-lg border-0 rounded-lg mb-4">
-            <div class="card-header bg-primary text-white">
-              <h4 class="text-center font-weight-bold my-2">
-                Historical Prediction
-              </h4>
+      <!-- Data tables row with minimal spacing - initially hidden, only shown after update plot button is clicked -->
+      <div id="prediction-tables" class="row mt-1" style="display: none">
+        <div class="col-md-6 pe-md-1">
+          <div class="card shadow-sm border-0 rounded-lg mb-2">
+            <div class="card-header bg-primary text-white py-1">
+              <h6 class="text-center mb-0 fw-bold">Historical Prediction</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body p-2">
               <div class="table-responsive">
                 <table
                   id="historical-table"
-                  class="table table-striped table-hover"
+                  class="table table-striped table-hover table-sm"
                 >
                   <thead>
                     <tr>
@@ -145,7 +250,7 @@
                     </tr>
                   </thead>
                   <tbody id="historical-tbody">
-                    <!-- Data will be loaded by JavaScript -->
+                    <!-- Data will be loaded dynamically when custom plot is generated -->
                   </tbody>
                 </table>
               </div>
@@ -153,18 +258,16 @@
           </div>
         </div>
 
-        <div class="col-md-6">
-          <div class="card shadow-lg border-0 rounded-lg mb-4">
-            <div class="card-header bg-primary text-white">
-              <h4 class="text-center font-weight-bold my-2">
-                Future Prediction
-              </h4>
+        <div class="col-md-6 ps-md-1">
+          <div class="card shadow-sm border-0 rounded-lg mb-2">
+            <div class="card-header bg-primary text-white py-1">
+              <h6 class="text-center mb-0 fw-bold">Future Prediction</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body p-2">
               <div class="table-responsive">
                 <table
                   id="future-table"
-                  class="table table-striped table-hover"
+                  class="table table-striped table-hover table-sm"
                 >
                   <thead>
                     <tr>
@@ -190,17 +293,21 @@
     <!-- Plotly.js for interactive charts -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script>
-      // Parse JSON data from Flask - using single quotes to avoid JSON escaping issues
-      let resultsData, futureData;
+      // Initialize with empty arrays since we'll only populate these from custom plot
+      let resultsData = [];
+      let futureData = [];
 
+      /*
+      // Original code to parse JSON data - now handled dynamically with custom plot
       try {
         resultsData = JSON.parse("{{ results|safe }}");
         futureData = JSON.parse("{{ future_results|safe }}");
       } catch (e) {
         console.error("Error parsing JSON data:", e);
-        // Provide empty fallbacks if parsing fails
         resultsData = [];
         futureData = [];
+      }
+      */
 
         // Show error alert
         const alertDiv = document.createElement("div");
@@ -211,6 +318,33 @@
       }
 
       $(document).ready(function () {
+        // Completely hide prediction tables on initial page load
+        // They will only be shown when user clicks "Update Plot" for custom plot
+        const predictionTables = document.getElementById("prediction-tables");
+        if (predictionTables) {
+          predictionTables.style.display = "none";
+        }
+
+        // Initialize empty DataTables to avoid errors
+        try {
+          $('#historical-table').DataTable({
+            order: [[0, 'desc']],
+            pageLength: 10,
+            searching: false,
+            info: false
+          });
+
+          $('#future-table').DataTable({
+            order: [[0, 'asc']],
+            pageLength: 10,
+            searching: false,
+            info: false
+          });
+        } catch (error) {
+          console.error("Error initializing empty DataTables:", error);
+        }
+
+        /* Original code - no longer needed as tables will be populated dynamically
         // Populate historical data table
         const historicalBody = document.getElementById("historical-tbody");
         resultsData.forEach((item) => {
@@ -303,6 +437,7 @@
           order: [[0, "asc"]],
           pageLength: 10,
         });
+        */
       });
     </script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
@@ -321,6 +456,8 @@
         const plotContainer = document.getElementById("plotContainer");
         const defaultPlot = document.getElementById("defaultPlot");
 
+        // Initial check of DOM elements (development logging only)
+        /*
         console.log("DOM elements loaded:", {
           updatePlotBtn: !!updatePlotBtn,
           historicalDaysInput: !!historicalDaysInput,
@@ -330,35 +467,36 @@
           plotContainer: !!plotContainer,
           defaultPlot: !!defaultPlot,
         });
+        */
 
         // Create a function to handle plot rendering
         function createPlotlyPlot(plotData, container) {
           try {
             // Clear the container
-            container.innerHTML = '';
-            
+            container.innerHTML = "";
+
             // Create plot container
-            const plotContainer = document.createElement('div');
-            plotContainer.style.width = '100%';
-            plotContainer.style.height = '600px';
+            const plotContainer = document.createElement("div");
+            plotContainer.style.width = "100%";
+            plotContainer.style.height = "600px";
             container.appendChild(plotContainer);
-            
+
             // Parse the HTML to extract the Plotly data and layout
-            const tempDiv = document.createElement('div');
+            const tempDiv = document.createElement("div");
             tempDiv.innerHTML = plotData;
-            
+
             // Try to evaluate any script content from the HTML
-            const scriptContent = tempDiv.querySelector('script');
+            const scriptContent = tempDiv.querySelector("script");
             if (scriptContent) {
               // Create and execute the script in the global context
-              const scriptEl = document.createElement('script');
+              const scriptEl = document.createElement("script");
               scriptEl.textContent = scriptContent.textContent;
               document.head.appendChild(scriptEl);
               console.log("Script from Plotly HTML executed");
             } else {
               console.log("No script found in Plotly HTML");
             }
-            
+
             // If direct script execution doesn't work, insert the HTML directly
             container.innerHTML = plotData;
           } catch (error) {
@@ -427,8 +565,9 @@
                 console.log("Data received:", data.success, data.message);
 
                 if (data.success) {
-                  // Hide default plot
+                  // Hide default plot and show custom plot container
                   if (defaultPlot) defaultPlot.style.display = "none";
+                  if (plotContainer) plotContainer.style.display = "none";
 
                   // Create a fresh container for the custom plot to avoid any rendering issues
                   if (customPlotContainer) {
@@ -439,14 +578,17 @@
                     const newPlotDiv = document.createElement("div");
                     newPlotDiv.id = "custom-plotly-" + new Date().getTime();
                     newPlotDiv.className = "plotly-container";
+                    newPlotDiv.style.paddingBottom = "20px"; // Add minimal padding for date labels
+                    newPlotDiv.style.marginBottom = "0px"; // Remove margin to bring tables closer
                     customPlotContainer.appendChild(newPlotDiv);
 
                     // Make the container visible - important!
                     customPlotContainer.style.display = "block";
 
-                    if (defaultPlot) {
-                      defaultPlot.style.display = "none";
-                    }
+                    // Force redraw to make sure the chart renders properly
+                    setTimeout(() => {
+                      window.dispatchEvent(new Event("resize"));
+                    }, 100);
 
                     // Check if we actually received any HTML content
                     console.log(
@@ -466,14 +608,14 @@
                       // This preserves any script tags and initialization code
                       newPlotDiv.innerHTML = data.plot_html;
                       console.log("Injected Plotly HTML directly");
-                      
+
                       // Execute any script tags that might have been added
                       const scripts = newPlotDiv.getElementsByTagName("script");
                       for (let i = 0; i < scripts.length; i++) {
                         const script = scripts[i];
                         const newScript = document.createElement("script");
                         // Copy all attributes
-                        Array.from(script.attributes).forEach(attr => {
+                        Array.from(script.attributes).forEach((attr) => {
                           newScript.setAttribute(attr.name, attr.value);
                         });
                         // Copy content
@@ -516,6 +658,34 @@
                   // Restore the button
                   updatePlotBtn.disabled = false;
                   updatePlotBtn.innerHTML = "Update Plot";
+
+                  // Update the tables with the received data
+                  updatePredictionTables(
+                    data.historical_data,
+                    data.future_data
+                  );
+
+                  // Show the prediction tables section
+                  const predictionTables =
+                    document.getElementById("prediction-tables");
+                  if (predictionTables) {
+                    predictionTables.style.display = "flex";
+                  } else {
+                    console.error("Prediction tables container not found");
+                  }
+
+                  // Scroll to make sure tables are visible
+                  setTimeout(() => {
+                    const customPlotContainer = document.getElementById(
+                      "customPlotContainer"
+                    );
+                    if (customPlotContainer) {
+                      customPlotContainer.scrollIntoView({
+                        behavior: "smooth",
+                        block: "nearest",
+                      });
+                    }
+                  }, 100);
 
                   // Force Plotly to resize the plot to fit the container
                   if (window.Plotly) {
@@ -614,6 +784,199 @@
           });
         } else {
           console.error("Update Plot button not found");
+        }
+
+        // Ensure plot is visible without scrolling
+        window.scrollTo(0, 0);
+
+        // Immediately resize any Plotly plots to fit correctly with no delay
+        if (window.Plotly) {
+          // First resize attempt
+          const plotlyElements = document.querySelectorAll(
+            ".js-plotly-plot, .plotly-graph-div"
+          );
+          if (plotlyElements.length > 0) {
+            console.log("Immediately resizing Plotly plots");
+            plotlyElements.forEach((plot) => {
+              try {
+                window.Plotly.Plots.resize(plot);
+              } catch (e) {
+                console.error("Error resizing plot:", e);
+              }
+            });
+          }
+
+          // Multiple resize attempts to ensure proper rendering
+          setTimeout(() => {
+            const plotlyElements = document.querySelectorAll(
+              ".js-plotly-plot, .plotly-graph-div"
+            );
+            plotlyElements.forEach((plot) => {
+              try {
+                window.Plotly.Plots.resize(plot);
+              } catch (e) {}
+            });
+          }, 100);
+
+          setTimeout(() => {
+            const plotlyElements = document.querySelectorAll(
+              ".js-plotly-plot, .plotly-graph-div"
+            );
+            plotlyElements.forEach((plot) => {
+              try {
+                window.Plotly.Plots.resize(plot);
+              } catch (e) {}
+            });
+          }, 500);
+        }
+
+        // Function to update the prediction tables with data from the server
+        function updatePredictionTables(historicalData, futureData) {
+          console.log(
+            "Updating prediction tables with data:",
+            "Historical:",
+            historicalData?.length || 0,
+            "Future:",
+            futureData?.length || 0
+          );
+
+          // Clear existing table data
+          const historicalTbody = document.getElementById("historical-tbody");
+          const futureTbody = document.getElementById("future-tbody");
+
+          if (historicalTbody) historicalTbody.innerHTML = "";
+          if (futureTbody) futureTbody.innerHTML = "";
+
+          // Populate historical data table if data is available
+          if (historicalData && historicalData.length > 0 && historicalTbody) {
+            historicalData.forEach((item) => {
+              const row = document.createElement("tr");
+
+              try {
+                // Format the values - handle potential errors with safe parsing
+                const formattedDate = item.Date || "";
+                const actual = !isNaN(parseFloat(item.Actual))
+                  ? parseFloat(item.Actual).toFixed(2)
+                  : "0.00";
+                const predicted = !isNaN(parseFloat(item.Predicted))
+                  ? parseFloat(item.Predicted).toFixed(2)
+                  : "0.00";
+                const diff = !isNaN(parseFloat(item.Difference))
+                  ? parseFloat(item.Difference).toFixed(2)
+                  : "0.00";
+                const accuracy = !isNaN(parseFloat(item.Accuracy))
+                  ? parseFloat(item.Accuracy).toFixed(2)
+                  : "0.00";
+
+                // Determine if difference is positive or negative
+                const diffClass =
+                  parseFloat(diff) > 0 ? "text-success" : "text-danger";
+
+                // Create table row HTML
+                row.innerHTML = `
+                  <td>${formattedDate}</td>
+                  <td>${actual}</td>
+                  <td>${predicted}</td>
+                  <td class="${diffClass}">${diff}</td>
+                  <td>${accuracy}%</td>
+                `;
+              } catch (error) {
+                console.error(
+                  "Error formatting historical data row:",
+                  error,
+                  item
+                );
+                row.innerHTML = `<td colspan="5" class="text-danger">Error displaying this row</td>`;
+              }
+
+              historicalTbody.appendChild(row);
+            });
+            console.log("Added historical data rows:", historicalData.length);
+          } else {
+            console.warn("No historical data available to display");
+            if (historicalTbody) {
+              const noDataRow = document.createElement("tr");
+              noDataRow.innerHTML =
+                '<td colspan="5" class="text-center">No historical data available</td>';
+              historicalTbody.appendChild(noDataRow);
+            }
+          }
+
+          // Populate future data table if data is available
+          if (futureData && futureData.length > 0 && futureTbody) {
+            futureData.forEach((item) => {
+              const row = document.createElement("tr");
+
+              try {
+                // Format the values - handle potential errors with safe parsing
+                const formattedDate = item.Date || "";
+                const predicted = !isNaN(parseFloat(item.Predicted))
+                  ? parseFloat(item.Predicted).toFixed(2)
+                  : "0.00";
+
+                // Create table row HTML
+                row.innerHTML = `
+                  <td>${formattedDate}</td>
+                  <td>${predicted}</td>
+                `;
+              } catch (error) {
+                console.error("Error formatting future data row:", error, item);
+                row.innerHTML = `<td colspan="2" class="text-danger">Error displaying this row</td>`;
+              }
+
+              futureTbody.appendChild(row);
+            });
+            console.log("Added future data rows:", futureData.length);
+          } else {
+            console.warn("No future data available to display");
+            if (futureTbody) {
+              const noDataRow = document.createElement("tr");
+              noDataRow.innerHTML =
+                '<td colspan="2" class="text-center">No future prediction data available</td>';
+              futureTbody.appendChild(noDataRow);
+            }
+          }
+
+          // Convert tables to DataTables for better user experience
+          try {
+            // Destroy existing DataTables instances if they exist
+            if ($.fn.DataTable.isDataTable("#historical-table")) {
+              $("#historical-table").DataTable().destroy();
+            }
+
+            if ($.fn.DataTable.isDataTable("#future-table")) {
+              $("#future-table").DataTable().destroy();
+            }
+
+            // Initialize DataTables with optimized configuration
+            $("#historical-table").DataTable({
+              order: [[0, "desc"]], // Sort by date descending
+              pageLength: 10,
+              searching: false, // Disable search
+              info: false, // Disable showing "1 of X entries"
+              responsive: true, // Make table responsive
+              lengthChange: false, // Disable page length options
+              dom: "tp", // Only show table and pagination controls
+            });
+
+            $("#future-table").DataTable({
+              order: [[0, "asc"]], // Sort by date ascending
+              pageLength: 10,
+              searching: false, // Disable search
+              info: false, // Disable showing "1 of X entries"
+              responsive: true, // Make table responsive
+              lengthChange: false, // Disable page length options
+              dom: "tp", // Only show table and pagination controls
+            });
+
+            // Show the tables container after tables are initialized
+            document.getElementById("prediction-tables").style.display = "flex";
+            console.log(
+              "DataTables successfully initialized and tables container shown"
+            );
+          } catch (error) {
+            console.error("Error initializing DataTables:", error);
+          }
         }
       });
     </script>
