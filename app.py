@@ -560,8 +560,11 @@ def create_interactive_plot(results, future_results, stock_symbol="Stock"):
         print(f"Error creating interactive plot: {str(e)}")
         return f"<div class='alert alert-danger'>Error creating interactive plot: {str(e)}</div>"
 
-def create_custom_interactive_plot(data, historical_days, prediction_days, stock_symbol="Stock"):
-    """Create interactive plot comparing last X days with next Y days prediction - following Google Colab approach"""
+def create_custom_interactive_plot(data, historical_days, prediction_days, stock_symbol="Stock", return_data=False):
+    """Create interactive plot comparing last X days with next Y days prediction - following Google Colab approach
+    
+    If return_data=True, returns a tuple of (plot_html, dataframe) where dataframe contains the data used for plotting
+    """
     try:
         print(f"Creating custom plot with {historical_days} historical days and {prediction_days} prediction days")
         
@@ -925,13 +928,25 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
         print(f"- First few historical values: {[x for x in last_original_days_value[:5] if not pd.isna(x)]}")
         print(f"- Last few prediction values: {[x for x in next_predicted_days_value[-5:] if not pd.isna(x)]}")
         
-        return plot_html
+        if return_data:
+            # Return both the plot HTML and the dataframe used to create it
+            return plot_html, new_pred_plot
+        else:
+            # Return just the plot HTML as before
+            return plot_html
         
     except Exception as e:
         print(f"Error creating custom interactive plot: {str(e)}")
         import traceback
         print(traceback.format_exc())
-        return f"<div class='alert alert-danger'>Error creating custom interactive plot: {str(e)}</div>"
+        error_html = f"<div class='alert alert-danger'>Error creating custom interactive plot: {str(e)}</div>"
+        
+        if return_data:
+            # Return error HTML and empty DataFrame
+            return error_html, pd.DataFrame()
+        else:
+            # Return just error HTML
+            return error_html
 
 @app.route('/')
 def index():
@@ -1382,7 +1397,7 @@ def custom_prediction():
             print(f"Close price range: {stock_data['Close'].min()} to {stock_data['Close'].max()}")
             
             # Create custom interactive plot
-            plot_html = create_custom_interactive_plot(stock_data, historical_days, prediction_days, stock_symbol)
+            plot_html, plot_data = create_custom_interactive_plot(stock_data, historical_days, prediction_days, stock_symbol, return_data=True)
             
             # Check if the plot was generated successfully
             if plot_html.startswith("<div class='alert alert-danger'>"):
@@ -1392,56 +1407,85 @@ def custom_prediction():
                     'message': plot_html
                 })
             
-            # Generate historical and future data tables
+            # Process the data from the plot to create consistent tables
             import datetime
-            today = datetime.datetime.now()
+            today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             
-            # Generate dates for the historical period
-            past_date = today - datetime.timedelta(days=historical_days)
+            # Extract historical and future data from the plot_data
+            # plot_data contains the DataFrame used to create the plot with columns:
+            # 'date', 'last_original_days_value', 'next_predicted_days_value'
             
-            # Filter data for the historical period - use closest data to our date range
-            historical_data = stock_data[stock_data['Date'] >= past_date].sort_values('Date')
-            if len(historical_data) > historical_days:
-                historical_data = historical_data.tail(historical_days)
-            
-            # Simulate predictions for historical data (15% variation of actual values)
-            import numpy as np
-            np.random.seed(42)  # For consistent results
-            
-            # Create historical prediction data
+            # Create historical prediction data using actual data from plot
             historical_results = []
-            for _, row in historical_data.iterrows():
-                actual_price = row['Close']
-                # Generate a simulated prediction within ±15% of actual
-                prediction_factor = 1 + np.random.uniform(-0.15, 0.15)
-                predicted_price = actual_price * prediction_factor
-                diff = predicted_price - actual_price
-                accuracy = 100 - abs(diff / actual_price * 100)
-                
-                historical_results.append({
-                    'Date': row['Date'].strftime('%Y-%m-%d'),
-                    'Actual': float(actual_price),
-                    'Predicted': float(predicted_price),
-                    'Difference': float(diff),
-                    'Accuracy': float(accuracy)
-                })
             
-            # Create future prediction data
+            # Get historical data points (non-NaN values in last_original_days_value)
+            historical_data_points = plot_data[~plot_data['last_original_days_value'].isna()]
+            
+            if len(historical_data_points) > 0:
+                print(f"Using {len(historical_data_points)} historical data points from plot")
+                
+                # Filter actual data for the date range in historical_data_points
+                min_date = historical_data_points['date'].min()
+                max_date = historical_data_points['date'].max()
+                
+                # Get actual data from stock_data for the same date range
+                stock_data['Date'] = pd.to_datetime(stock_data['Date'])
+                actual_data = stock_data[(stock_data['Date'] >= min_date) & 
+                                        (stock_data['Date'] <= max_date)]
+                
+                # Create a date-indexed dictionary of actual prices for quick lookup
+                actual_prices_dict = {}
+                for _, row in actual_data.iterrows():
+                    date_str = row['Date'].strftime('%Y-%m-%d')
+                    actual_prices_dict[date_str] = float(row['Close'])
+                
+                # Create historical results with actual and predicted values
+                for _, row in historical_data_points.iterrows():
+                    date_str = row['date'].strftime('%Y-%m-%d')
+                    predicted_price = float(row['last_original_days_value'])
+                    
+                    # Try to find actual price for this date
+                    actual_price = actual_prices_dict.get(date_str)
+                    
+                    # If we have actual price, calculate difference and accuracy
+                    if actual_price is not None:
+                        diff = predicted_price - actual_price
+                        accuracy = 100 - abs(diff / actual_price * 100)
+                    else:
+                        # If no actual price is available, use prediction as actual (will show 100% accuracy)
+                        actual_price = predicted_price
+                        diff = 0.0
+                        accuracy = 100.0
+                    
+                    historical_results.append({
+                        'Date': date_str,
+                        'Actual': float(actual_price),
+                        'Predicted': predicted_price,
+                        'Difference': float(diff),
+                        'Accuracy': float(accuracy)
+                    })
+            else:
+                print("No historical data points found in plot data")
+            
+            # Create future prediction data from plot next_predicted_days_value
             future_results = []
-            last_price = historical_data['Close'].iloc[-1] if not historical_data.empty else 4000
-            future_date = today
             
-            for i in range(prediction_days):
-                future_date += datetime.timedelta(days=1)
-                # Generate prediction with slight upward trend and randomness
-                prediction_factor = 1 + np.random.uniform(-0.02, 0.04)
-                predicted_price = last_price * prediction_factor
-                last_price = predicted_price
+            # Get future data points (non-NaN values in next_predicted_days_value)
+            future_data_points = plot_data[~plot_data['next_predicted_days_value'].isna()]
+            
+            if len(future_data_points) > 0:
+                print(f"Using {len(future_data_points)} future data points from plot")
                 
-                future_results.append({
-                    'Date': future_date.strftime('%Y-%m-%d'),
-                    'Predicted': float(predicted_price)
-                })
+                for _, row in future_data_points.iterrows():
+                    date_str = row['date'].strftime('%Y-%m-%d')
+                    predicted_price = float(row['next_predicted_days_value'])
+                    
+                    future_results.append({
+                        'Date': date_str,
+                        'Predicted': predicted_price
+                    })
+            else:
+                print("No future data points found in plot data")
             
             print("Custom plot and prediction tables created successfully")
             
@@ -1462,9 +1506,26 @@ def custom_prediction():
             future_date = today + datetime.timedelta(days=prediction_days)
             future_date_str = future_date.strftime('%Y-%m-%d')
             
-            # Verify data format for the tables
+            # Verify data format for the tables - more detailed debug info
             print(f"Historical data sample: {historical_results[0] if historical_results else 'None'}")
             print(f"Future data sample: {future_results[0] if future_results else 'None'}")
+            
+            # Show some sample rows from the plot data
+            print("\nPlot data sample (first 3 rows):")
+            print(plot_data.head(3).to_string())
+            
+            # Verify numbers in historical and future tables match the plot
+            if historical_results and future_results:
+                print("\nVerifying data consistency:")
+                print(f"Plot's first historical date: {plot_data[~plot_data['last_original_days_value'].isna()].iloc[0]['date'].strftime('%Y-%m-%d')}")
+                print(f"Plot's first historical value: {plot_data[~plot_data['last_original_days_value'].isna()].iloc[0]['last_original_days_value']:.2f}")
+                print(f"Table's first historical date: {historical_results[0]['Date']}")
+                print(f"Table's first historical value (predicted): {historical_results[0]['Predicted']:.2f}")
+                
+                print(f"Plot's first future date: {plot_data[~plot_data['next_predicted_days_value'].isna()].iloc[0]['date'].strftime('%Y-%m-%d')}")
+                print(f"Plot's first future value: {plot_data[~plot_data['next_predicted_days_value'].isna()].iloc[0]['next_predicted_days_value']:.2f}")
+                print(f"Table's first future date: {future_results[0]['Date']}")
+                print(f"Table's first future value: {future_results[0]['Predicted']:.2f}")
             
             # Add date range header before the plot
             date_header = f'''
