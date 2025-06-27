@@ -766,7 +766,8 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
             labels={'value': 'Stock price', 'date': 'Date'},
             line_shape='linear', 
             render_mode='svg',  # Use SVG for better quality
-            title=title
+            title=title,
+            hover_data={'date': '|%Y-%m-%d'} # Format the date in hover information
         )
         
         # Update trace names and style to match the cycle (just like in Colab)
@@ -815,6 +816,10 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
         past_date_str = past_date.strftime('%Y-%m-%d')
         future_date = today + datetime.timedelta(days=prediction_days)
         future_date_str = future_date.strftime('%Y-%m-%d')
+        
+        fig.update_traces(
+            hovertemplate='<b>Date</b>: %{x|%Y-%m-%d}<br><b>Price</b>: $%{y:.2f}<extra></extra>'
+        )
         
         fig.update_layout(
             title={
@@ -949,7 +954,13 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
             return error_html
 
 @app.route('/')
+def landing():
+    """Landing page route"""
+    return render_template('landing.html')
+
+@app.route('/app')
 def index():
+    """Dashboard/index page route"""
     # Get list of available models
     available_models = get_available_models()
     # Check if any model is loaded
@@ -961,6 +972,29 @@ def index():
                            model_loaded=model_loaded,
                            available_models=available_models,
                            active_model=active_model)
+
+@app.route('/prediction')
+def prediction_page():
+    """Prediction results page route"""
+    # This route will be used to display prediction results
+    # For now, redirect to dashboard if accessed directly
+    flash('Please upload a CSV file first to see predictions.')
+    return redirect(url_for('index'))
+
+@app.route('/lstm')
+def lstm_info():
+    """LSTM model information page route"""
+    return render_template('lstm_info.html')
+
+@app.route('/lstm-gru')
+def lstm_gru_info():
+    """LSTM+GRU model information page route"""
+    return render_template('lstm_gru_info.html')
+
+@app.route('/gru')
+def gru_info():
+    """GRU model information page route"""
+    return render_template('gru_info.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -986,7 +1020,7 @@ def upload_file():
             # Check if model is loaded
             if model is None:
                 flash("Please upload and load the LSTM model before uploading CSV data")
-                return redirect('/')
+                return redirect('/app')
                 
             # Load data
             stock_data = pd.read_csv(filepath)            # Special case: Check for non-standard CSV structures like the BBRI.csv file
@@ -1049,7 +1083,7 @@ def upload_file():
                             print(f"Using column '{stock_data.columns[price_col]}' as Close. Values: {clean_data['Close'].head().tolist()}")
                         else:
                             flash("Could not find a suitable 'close' or price column in the CSV file")
-                            return redirect('/')
+                            return redirect('/app')
                     
                     # Drop rows with NaN values
                     clean_data = clean_data.dropna().reset_index(drop=True)
@@ -1060,7 +1094,7 @@ def upload_file():
                     print("Successfully restructured the CSV data")
                 else:
                     flash("Could not process the special CSV format correctly - no date column found")
-                    return redirect('/')
+                    return redirect('/app')
             else:
                 # Normal CSV format processing with case-insensitive check
                 required_cols = {'date': 'Date', 'close': 'Close'}
@@ -1082,7 +1116,7 @@ def upload_file():
             # Check if we have the required columns after processing
             if 'Date' not in stock_data.columns or 'Close' not in stock_data.columns:
                 flash(f"Required column(s) not found in CSV file: {', '.join(missing_cols)}")
-                return redirect('/')
+                return redirect('/app')
               # Convert Date column to datetime
             try:
                 stock_data['Date'] = pd.to_datetime(stock_data['Date'])
@@ -1101,7 +1135,7 @@ def upload_file():
                     print("Date column fixed after handling formatting issues")
                 except Exception as e2:
                     flash(f"Could not parse Date column: {str(e2)}")
-                    return redirect('/')
+                    return redirect('/app')
             
             # If we're using the default scaler, fit it on the data
             if not os.path.exists(SCALER_PATH):
