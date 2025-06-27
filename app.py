@@ -766,7 +766,8 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
             labels={'value': 'Stock price', 'date': 'Date'},
             line_shape='linear', 
             render_mode='svg',  # Use SVG for better quality
-            title=title
+            title=title,
+            hover_data={'date': '|%Y-%m-%d'} # Format the date in hover information
         )
         
         # Update trace names and style to match the cycle (just like in Colab)
@@ -815,6 +816,10 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
         past_date_str = past_date.strftime('%Y-%m-%d')
         future_date = today + datetime.timedelta(days=prediction_days)
         future_date_str = future_date.strftime('%Y-%m-%d')
+        
+        fig.update_traces(
+            hovertemplate='<b>Date</b>: %{x|%Y-%m-%d}<br><b>Price</b>: $%{y:.2f}<extra></extra>'
+        )
         
         fig.update_layout(
             title={
