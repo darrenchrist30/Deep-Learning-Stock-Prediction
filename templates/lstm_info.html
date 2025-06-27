@@ -59,6 +59,27 @@
             margin-right: 0.2rem;
         }
         
+        .main-title-link {
+            text-decoration: none !important;
+            display: inline-block;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .main-title-link:hover {
+            text-decoration: none !important;
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .main-title-link:hover .main-title {
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+        }
+
+        .main-title-link:focus {
+            text-decoration: none !important;
+            outline: none;
+        }
+
         .main-title {
             font-size: 3.5rem;
             font-weight: 700;
@@ -67,6 +88,8 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
         
         .content-section {
@@ -261,7 +284,12 @@
             <a href="/" class="back-btn" title="Back to Landing">
                 <span class="back-arrow">&#8592;</span> Back
             </a>
-            <h1 class="main-title">Long Short Term Memory (LSTM)</h1>
+            <a href="https://colab.research.google.com/drive/1gHu3oharfUJ5qgtOxQbBMriuATEQJjid" 
+               target="_blank" 
+               class="main-title-link" 
+               title="View LSTM Implementation in Google Colab">
+                <h1 class="main-title">Long Short Term Memory (LSTM)</h1>
+            </a>
         </div>
     </div>
     

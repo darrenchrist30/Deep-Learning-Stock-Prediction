@@ -58,6 +58,27 @@
             font-size: 1.3rem;
             margin-right: 0.2rem;
         }
+
+        .main-title-link {
+            text-decoration: none !important;
+            display: inline-block;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .main-title-link:hover {
+            text-decoration: none !important;
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .main-title-link:hover .main-title {
+            text-shadow: 0 0 20px rgba(139, 92, 246, 0.6);
+        }
+
+        .main-title-link:focus {
+            text-decoration: none !important;
+            outline: none;
+        }
         
         .main-title {
             font-size: 3.5rem;
@@ -67,6 +88,8 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
         
         .content-section {
@@ -270,13 +293,18 @@
     
     <!-- Header Section -->
     <div class="header-section">
-        <div class="container">
-            <a href="/" class="back-btn" title="Back to Landing">
-                <span class="back-arrow">&#8592;</span> Back
-            </a>
+    <div class="container">
+        <a href="/" class="back-btn" title="Back to Landing">
+            <span class="back-arrow">&#8592;</span> Back
+        </a>
+        <a href="https://colab.research.google.com/drive/12-h1nKEuFcUkh_I9_itsfVia2pZ3BHJ_#scrollTo=xaKfL7f_zPof" 
+           target="_blank" 
+           class="main-title-link" 
+           title="View LSTM + GRU Implementation in Google Colab">
             <h1 class="main-title">LSTM + GRU</h1>
-        </div>
+        </a>
     </div>
+</div>
     
     <!-- Content Section -->
     <div class="content-section">
