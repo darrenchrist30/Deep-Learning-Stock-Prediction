@@ -22,6 +22,8 @@ from io import BytesIO
 import base64
 import glob
 import re
+import uuid
+import traceback
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "saham-prediction-app"
@@ -438,7 +440,7 @@ def create_interactive_plot(results, future_results, stock_symbol="Stock"):
             y=results['Actual'],
             mode='lines',
             name='Actual Price',
-            line=dict(color='#4169E1', width=2), # Royal blue to match
+            line=dict(color='#38BDF8', width=2), # Sky blue for dark theme
             hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
                          '<b>Actual Price:</b> %{y:.2f}<br>' +
                          '<extra></extra>'
@@ -450,7 +452,7 @@ def create_interactive_plot(results, future_results, stock_symbol="Stock"):
             y=results['Predicted'],
             mode='lines',
             name='Predicted Price (Historical)',
-            line=dict(color='#9370DB', width=2), # Medium purple
+            line=dict(color='#A78BFA', width=2), # Purple for dark theme
             hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
                          '<b>Predicted Price:</b> %{y:.2f}<br>' +
                          '<extra></extra>'
@@ -462,35 +464,42 @@ def create_interactive_plot(results, future_results, stock_symbol="Stock"):
             y=future_results['Predicted'],
             mode='lines',
             name='Future Prediction',
-            line=dict(color='#FF4500', width=2), # OrangeRed
+            line=dict(color='#FB7185', width=2), # Rose/pink for dark theme
             hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
                          '<b>Predicted Price:</b> %{y:.2f}<br>' +
                          '<extra></extra>'
         ))
         
-        # Update layout to match reference style - with optimized space
+        # Update layout to match dark theme with elegant styling
         fig.update_layout(
-            title=f'{stock_symbol} - Stock Price Prediction',
-            xaxis_title='Date',
-            yaxis_title='Stock price',
+            title={
+                'text': f'{stock_symbol} - Stock Price Prediction',
+                'font': {'size': 18, 'color': '#E8E9FA', 'family': 'Inter, sans-serif'},
+                'x': 0.5,
+                'xanchor': 'center'
+            },
+            xaxis_title={'text': 'Date', 'font': {'size': 14, 'color': '#B8B9CA'}},
+            yaxis_title={'text': 'Stock Price', 'font': {'size': 14, 'color': '#B8B9CA'}},
             hovermode='x unified',
             height=500,  # Reduced height for more compact display
             legend=dict(
-                title="Close Price",
+                title={'text': "Close Price", 'font': {'size': 12, 'color': '#E8E9FA'}},
                 y=0.99,
                 x=1.0,
                 xanchor='right',
                 yanchor='top',
-                bgcolor='rgba(255,255,255,0.8)', 
-                bordercolor='rgba(0,0,0,0.2)',
-                borderwidth=1
+                bgcolor='rgba(18, 20, 28, 0.9)', 
+                bordercolor='rgba(56, 189, 248, 0.3)',
+                borderwidth=1,
+                font={'color': '#E8E9FA', 'size': 11}
             ),
-            margin=dict(l=50, r=50, t=30, b=80),  # Optimized margins
-            plot_bgcolor='white',
-            paper_bgcolor='white'
+            margin=dict(l=50, r=50, t=60, b=80),  # Optimized margins
+            plot_bgcolor='#0F1419',  # Dark blue-gray background
+            paper_bgcolor='#12141C',  # Slightly lighter dark background
+            font={'family': 'Inter, sans-serif', 'color': '#E8E9FA'}
         )
         
-        # Configure X-axis with more frequent date labels
+        # Configure X-axis to show years by default for main chart
         # Calculate date range
         try:
             first_date = pd.to_datetime(results['Date'].iloc[0]) if not results.empty else None
@@ -499,40 +508,44 @@ def create_interactive_plot(results, future_results, stock_symbol="Stock"):
             if first_date and last_pred_date:
                 date_range_days = (last_pred_date - first_date).days
                 
-                # Set appropriate tick interval based on date range
-                if date_range_days <= 14:  # Two weeks or less
-                    dtick_val = 'D1'  # Daily ticks
-                elif date_range_days <= 30:  # About a month
-                    dtick_val = 'D2'  # Every other day
-                elif date_range_days <= 90:  # Three months
-                    dtick_val = 'D7'  # Weekly ticks
-                elif date_range_days <= 365:  # Up to a year
-                    dtick_val = 'D14'  # Bi-weekly ticks
-                else:
+                # For main chart, prefer yearly view for better overview
+                if date_range_days <= 90:  # Three months or less
                     dtick_val = 'M1'  # Monthly ticks
+                    tick_format = '%Y-%m'  # Year-Month format
+                elif date_range_days <= 730:  # Up to 2 years
+                    dtick_val = 'M3'  # Quarterly ticks
+                    tick_format = '%Y-%m'  # Year-Month format
+                else:
+                    dtick_val = 'M12'  # Yearly ticks
+                    tick_format = '%Y'  # Year only format
             else:
-                dtick_val = 'M1'  # Default to monthly if we can't calculate
+                dtick_val = 'M12'  # Default to yearly
+                tick_format = '%Y'  # Year format
         except Exception:
-            dtick_val = 'M1'  # Fallback to monthly on error
+            dtick_val = 'M12'  # Fallback to yearly on error
+            tick_format = '%Y'  # Year format
             
         fig.update_xaxes(
             type='date',           # Explicitly set as date type
             showgrid=True,
             gridwidth=1,
-            gridcolor='lightgray',
+            gridcolor='rgba(56, 189, 248, 0.2)',  # Light blue grid for dark theme
             tickangle=45,          # Angle for better readability
-            dtick=dtick_val,       # Dynamic tick interval
-            tickformat='%Y-%m-%d', # Standard date format YYYY-MM-DD
-            tickfont=dict(size=10), # Slightly smaller font size for dates
+            dtick=dtick_val,       # Year-based tick interval
+            tickformat=tick_format, # Year-based date format
+            tickfont=dict(size=10, color='#B8B9CA'), # Light gray text for dark theme
             automargin=True,       # Automatically adjust margins to fit labels
             showticklabels=True,   # Make sure labels are visible
-            nticks=12              # Force a reasonable number of ticks
+            nticks=12,             # Force a reasonable number of ticks
+            title_font={'color': '#B8B9CA'}
         )
         
         fig.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
-            gridcolor='lightgray'
+            gridcolor='rgba(56, 189, 248, 0.2)',  # Light blue grid for dark theme
+            tickfont=dict(color='#B8B9CA'),  # Light gray text for dark theme
+            title_font={'color': '#B8B9CA'}
         )
         
         # Convert to HTML with improved config
@@ -758,27 +771,27 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
         
         title = f"Stock Price: {past_date_str} to {today_str} (Historical) vs {today_str} to {future_date_str} (Prediction)"
         
-        # Create the figure using px.line like in the Colab example, with more explicit setup
-        fig = px.line(
-            new_pred_plot,
-            x='date',
-            y=['last_original_days_value', 'next_predicted_days_value'],
-            labels={'value': 'Stock price', 'date': 'Date'},
-            line_shape='linear', 
-            render_mode='svg',  # Use SVG for better quality
-            title=title,
-            hover_data={'date': '|%Y-%m-%d'} # Format the date in hover information
-        )
+        # Create the figure using go.Figure instead of px.line for better dark theme control
+        fig = go.Figure()
         
-        # Update trace names and style to match the cycle (just like in Colab)
-        # Also set different colors and line styles for historical vs prediction data
-        fig.for_each_trace(lambda t: t.update(
-            name=next(names), 
-            line=dict(
-                width=2, 
-                color='blue' if 'last_original' in t.name else 'red',
-                dash=None if 'last_original' in t.name else 'dot'
-            )
+        # Add historical data trace
+        fig.add_trace(go.Scatter(
+            x=new_pred_plot['date'],
+            y=new_pred_plot['last_original_days_value'],
+            mode='lines',
+            name=f'Last {historical_days} days close price',
+            line=dict(color='#38BDF8', width=2),  # Sky blue for dark theme
+            hovertemplate='<b>Date</b>: %{x|%Y-%m-%d}<br><b>Price</b>: $%{y:.2f}<extra></extra>'
+        ))
+        
+        # Add prediction data trace
+        fig.add_trace(go.Scatter(
+            x=new_pred_plot['date'],
+            y=new_pred_plot['next_predicted_days_value'],
+            mode='lines',
+            name=f'Predicted next {prediction_days} days close price',
+            line=dict(color='#FB7185', width=2, dash='dot'),  # Rose/pink with dotted line for dark theme
+            hovertemplate='<b>Date</b>: %{x|%Y-%m-%d}<br><b>Price</b>: $%{y:.2f}<extra></extra>'
         ))
         
         # Add transition markers at the connection point between historical and predicted data
@@ -801,7 +814,7 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
                 x=transition_dates,
                 y=transition_values,
                 mode='markers',
-                marker=dict(size=8, color='rgba(0, 0, 0, 0.7)'),
+                marker=dict(size=8, color='rgba(168, 139, 250, 0.8)'),  # Purple markers for dark theme
                 name='Transition Points',
                 hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br>' +
                              '<b>Price:</b> %{y:.2f}<br>' +
@@ -817,36 +830,42 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
         future_date = today + datetime.timedelta(days=prediction_days)
         future_date_str = future_date.strftime('%Y-%m-%d')
         
-        fig.update_traces(
-            hovertemplate='<b>Date</b>: %{x|%Y-%m-%d}<br><b>Price</b>: $%{y:.2f}<extra></extra>'
-        )
+        # Update layout with improved settings for dark theme - matching main chart
+        # Use current date to create a more accurate date-based title
+        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_str = today.strftime('%Y-%m-%d')
+        past_date = today - datetime.timedelta(days=historical_days)
+        past_date_str = past_date.strftime('%Y-%m-%d')
+        future_date = today + datetime.timedelta(days=prediction_days)
+        future_date_str = future_date.strftime('%Y-%m-%d')
         
         fig.update_layout(
             title={
                 'text': f'Stock Price: {past_date_str} to {future_date_str}',
-                'font': {'size': 14, 'color': 'darkblue', 'family': 'Arial, sans-serif'},
+                'font': {'size': 16, 'color': '#E8E9FA', 'family': 'Inter, sans-serif'},
                 'x': 0.5,  # Center the title
                 'xanchor': 'center'
             },
-            xaxis_title={'text': 'Date', 'font': {'size': 12, 'color': 'darkblue'}},
-            yaxis_title={'text': 'Stock Price', 'font': {'size': 12, 'color': 'darkblue'}},
+            xaxis_title={'text': 'Date', 'font': {'size': 14, 'color': '#B8B9CA'}},
+            yaxis_title={'text': 'Stock Price', 'font': {'size': 14, 'color': '#B8B9CA'}},
             hovermode='x unified',
             height=500,  # Reduced height for more compact display
             legend=dict(
-                title={'text': 'Close Price', 'font': {'size': 11}},
+                title={'text': 'Close Price', 'font': {'size': 12, 'color': '#E8E9FA'}},
                 y=0.99,
                 x=0.99,
                 xanchor='right',
                 yanchor='top',
-                bgcolor='rgba(255,255,255,0.9)', 
-                bordercolor='rgba(0,0,0,0.2)',
+                bgcolor='rgba(18, 20, 28, 0.9)', 
+                bordercolor='rgba(56, 189, 248, 0.3)',
                 borderwidth=1,
-                orientation='v'
+                orientation='v',
+                font={'color': '#E8E9FA', 'size': 11}
             ),
-            margin=dict(l=50, r=30, t=50, b=80),  # Optimized margins
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font={'family': 'Arial, sans-serif'},
+            margin=dict(l=50, r=30, t=60, b=80),  # Optimized margins
+            plot_bgcolor='#0F1419',  # Dark blue-gray background - same as main chart
+            paper_bgcolor='#12141C',  # Slightly lighter dark background - same as main chart
+            font={'family': 'Inter, sans-serif', 'color': '#E8E9FA'},
             autosize=True
         )
         
@@ -875,19 +894,22 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
             tickangle=45,           # Angle the labels for better readability
             dtick=tick_interval,    # Dynamic tick interval based on date range
             rangeslider_visible=False,
-            tickfont=dict(size=10),  # Slightly smaller font for dates
+            tickfont=dict(size=10, color='#B8B9CA'),  # Light gray text for dark theme
             automargin=True,        # Automatically adjust margins to fit labels
             showgrid=True,          # Show grid lines
             gridwidth=1,            # Width of grid lines
-            gridcolor='lightgray',  # Color of grid lines
+            gridcolor='rgba(56, 189, 248, 0.2)',  # Light blue grid for dark theme
             nticks=max(10, min(date_range_days, 20)),  # Ensure a reasonable number of ticks
-            showticklabels=True     # Make sure labels are visible
+            showticklabels=True,    # Make sure labels are visible
+            title_font={'color': '#B8B9CA'}
         )
         
         fig.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
-            gridcolor='lightgray'
+            gridcolor='rgba(56, 189, 248, 0.2)',  # Light blue grid for dark theme
+            tickfont=dict(color='#B8B9CA'),  # Light gray text for dark theme
+            title_font={'color': '#B8B9CA'}
         )
         
         # Generate a unique ID for this plot

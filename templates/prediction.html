@@ -942,55 +942,20 @@
                         script.parentNode.replaceChild(newScript, script);
                       }
 
-                      // Add a small delay then try to modify the Plotly layout for better visibility
+                      // Add a small delay then try to resize Plotly plot
                       setTimeout(() => {
                         try {
                           const plotlyGraphs =
                             document.querySelectorAll(".js-plotly-plot");
                           if (plotlyGraphs.length > 0) {
                             plotlyGraphs.forEach((plot) => {
-                              // Get the plot's context
+                              // Just resize the plot without changing the background colors
+                              // The dark theme colors are already set correctly in Python backend
                               if (window.Plotly && plot._context) {
-                                // Update layout for better spacing and readability
+                                // Only update layout for better spacing without changing colors
                                 const updateLayout = {
-                                  margin: { t: 50, r: 50, b: 80, l: 60 },
-                                  height: 600, // Make plot taller
-                                  xaxis: {
-                                    tickformat: "%Y-%m", // Show only year-month format for less cluttered labels
-                                    tickangle: 45,
-                                    tickfont: {
-                                      size: 13,
-                                      family: "Arial, sans-serif",
-                                    }, // Larger font size
-                                    title: {
-                                      text: "Date",
-                                      font: {
-                                        size: 14,
-                                        family: "Arial, sans-serif",
-                                      },
-                                    },
-                                    gridcolor: "#f0f0f0",
-                                  },
-                                  yaxis: {
-                                    titlefont: {
-                                      size: 14,
-                                      family: "Arial, sans-serif",
-                                    },
-                                    tickfont: {
-                                      size: 13,
-                                      family: "Arial, sans-serif",
-                                    },
-                                    title: {
-                                      text: "Price",
-                                      font: {
-                                        size: 14,
-                                        family: "Arial, sans-serif",
-                                      },
-                                    },
-                                    gridcolor: "#f0f0f0",
-                                  },
-                                  plot_bgcolor: "#ffffff",
-                                  paper_bgcolor: "#ffffff",
+                                  margin: { t: 60, r: 50, b: 80, l: 60 },
+                                  height: 500
                                 };
                                 window.Plotly.relayout(plot, updateLayout);
                               }
@@ -1176,31 +1141,11 @@
             console.log("Initializing and resizing Plotly plots");
             plotlyElements.forEach((plot) => {
               try {
-                // Update the layout to show only year on x-axis and make the plot more readable
+                // Just resize the plot without changing the styling
+                // The plot styling is already set correctly in Python backend
                 window.Plotly.relayout(plot, {
-                  margin: { t: 50, r: 50, b: 80, l: 60 },
-                  height: 600,
-                  xaxis: {
-                    tickformat: "%Y-%m", // Show only year-month format
-                    tickangle: 45,
-                    tickfont: { size: 13, family: "Arial, sans-serif" },
-                    title: {
-                      text: "Date",
-                      font: { size: 14, family: "Arial, sans-serif" },
-                    },
-                    gridcolor: "#f0f0f0",
-                  },
-                  yaxis: {
-                    titlefont: { size: 14, family: "Arial, sans-serif" },
-                    tickfont: { size: 13, family: "Arial, sans-serif" },
-                    title: {
-                      text: "Price",
-                      font: { size: 14, family: "Arial, sans-serif" },
-                    },
-                    gridcolor: "#f0f0f0",
-                  },
-                  plot_bgcolor: "#ffffff",
-                  paper_bgcolor: "#ffffff",
+                  margin: { t: 60, r: 50, b: 80, l: 60 },
+                  height: 500
                 });
 
                 // Resize the plot
