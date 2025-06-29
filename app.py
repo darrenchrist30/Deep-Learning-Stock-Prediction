@@ -830,15 +830,6 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
         future_date = today + datetime.timedelta(days=prediction_days)
         future_date_str = future_date.strftime('%Y-%m-%d')
         
-        # Update layout with improved settings for dark theme - matching main chart
-        # Use current date to create a more accurate date-based title
-        today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_str = today.strftime('%Y-%m-%d')
-        past_date = today - datetime.timedelta(days=historical_days)
-        past_date_str = past_date.strftime('%Y-%m-%d')
-        future_date = today + datetime.timedelta(days=prediction_days)
-        future_date_str = future_date.strftime('%Y-%m-%d')
-        
         fig.update_layout(
             title={
                 'text': f'Stock Price: {past_date_str} to {future_date_str}',
@@ -863,8 +854,8 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
                 font={'color': '#E8E9FA', 'size': 11}
             ),
             margin=dict(l=50, r=30, t=60, b=80),  # Optimized margins
-            plot_bgcolor='#0F1419',  # Dark blue-gray background - same as main chart
-            paper_bgcolor='#12141C',  # Slightly lighter dark background - same as main chart
+            plot_bgcolor='#0F1419',  # Dark blue-gray background
+            paper_bgcolor='#12141C',  # Slightly lighter dark background
             font={'family': 'Inter, sans-serif', 'color': '#E8E9FA'},
             autosize=True
         )
@@ -890,16 +881,15 @@ def create_custom_interactive_plot(data, historical_days, prediction_days, stock
         # Configure x-axis with complete date labels (just one call to prevent overrides)
         fig.update_xaxes(
             type='date',
-            tickformat='%Y-%m-%d',  # Format as YYYY-MM-DD
+            tickformat='%Y-%m',  # Year-Month format
             tickangle=45,           # Angle the labels for better readability
-            dtick=tick_interval,    # Dynamic tick interval based on date range
+            dtick='M1',             # Satu label per bulan
             rangeslider_visible=False,
             tickfont=dict(size=10, color='#B8B9CA'),  # Light gray text for dark theme
             automargin=True,        # Automatically adjust margins to fit labels
             showgrid=True,          # Show grid lines
             gridwidth=1,            # Width of grid lines
             gridcolor='rgba(56, 189, 248, 0.2)',  # Light blue grid for dark theme
-            nticks=max(10, min(date_range_days, 20)),  # Ensure a reasonable number of ticks
             showticklabels=True,    # Make sure labels are visible
             title_font={'color': '#B8B9CA'}
         )

@@ -348,19 +348,9 @@
         </div>
     </div>
     <div class="dashboard-main">
-        <div class="dashboard-forms">
-            <!-- Upload Stock Data Form -->
-            <div class="form-card">
-                <h5>Upload Stock Data</h5>
-                <p style="color:#bfc9d1; font-size:0.98rem;">Upload a CSV file containing historical stock data</p>
-                <form id="upload_stock_form" action="/upload" method="POST" enctype="multipart/form-data" autocomplete="off">
-                    <label for="file" class="form-label">Select CSV File</label>
-                    <input class="form-control" type="file" id="file" name="file" accept=".csv" required />
-                    <button type="submit" class="btn btn-primary w-100 mt-2">Upload and Predict</button>
-                </form>
-            </div>
+        <div class="dashboard-forms" id="dashboardForms">
             <!-- Model Selection Form -->
-            <div class="form-card">
+            <div class="form-card" id="modelSelectCard" style="margin:auto;">
                 <h5>Select Model</h5>
                 <p style="color:#bfc9d1; font-size:0.98rem;">Choose a pre-trained LSTM model from the available models.</p>
                 <form id="upload_model_form" action="javascript:void(0);" autocomplete="off">
@@ -373,6 +363,23 @@
                     </select>
                     <button type="button" id="apply_model_btn" class="btn btn-primary w-100 mt-2">Apply Selected Model</button>
                 </form>
+            </div>
+            <!-- Upload Stock Data Form -->
+            <div class="form-card" id="uploadStockCard" style="display:none;">
+                <h5>Upload Stock Data</h5>
+                <p style="color:#bfc9d1; font-size:0.98rem;">Upload a CSV file containing historical stock data</p>
+                <form id="upload_stock_form" action="/upload" method="POST" enctype="multipart/form-data" autocomplete="off">
+                    <label for="file" class="form-label">Select CSV File</label>
+                    <input class="form-control" type="file" id="file" name="file" accept=".csv" required />
+                    <button type="submit" class="btn btn-primary w-100 mt-2">Upload and Predict</button>
+                </form>
+            </div>
+        </div>
+        <!-- Selected Model Info -->
+        <div id="selectedModelInfo" style="display:none; margin-top:0.5rem;">
+            <div style="display:inline-block; background:linear-gradient(90deg,#0d1a4a 0%,#173bbb 100%); color:#fff; border-radius:1.2rem; box-shadow:0 2px 12px 0 rgba(23,59,187,0.13); padding:0.75rem 2rem; font-size:1.13rem; font-weight:600; letter-spacing:0.5px;">
+                <span style="opacity:0.85; font-weight:500;">Selected Model:</span>
+                <span id="selectedModelName" style="font-weight:700; color:#fff; margin-left:0.7rem;"></span>
             </div>
         </div>
     </div>
@@ -398,16 +405,31 @@
         }
         // Script untuk form handling
         $(function() {
+            // Tampilkan hanya form model di awal, tengah layar
+            $('#uploadStockCard').hide();
+            $('#modelSelectCard').css({
+                'margin': 'auto',
+                'align-self': 'center',
+                'box-shadow': '0 10px 40px 0 rgba(23,59,187,0.18), 0 2px 12px 0 rgba(23,59,187,0.10) inset'
+            });
+            $('.dashboard-forms').css({
+                'display': 'flex',
+                'flex-direction': 'column',
+                'align-items': 'center',
+                'justify-content': 'center',
+                'min-height': '60vh',
+                'gap': '0'
+            });
+
             // Form upload menggunakan submit normal HTML (tidak AJAX)
             $('#upload_stock_form').on('submit', function() {
-                // Gunakan metode submit normal HTML form
                 return true; 
             });
-            
-            // Model selection: AJAX submit, show notification, no redirect
+            // Model selection: AJAX submit, show notification, lalu munculkan form upload
             $('#apply_model_btn').on('click', function() {
                 var formData = $('#upload_model_form').serialize();
                 var $btn = $(this);
+                var selectedModelText = $('#selected_model option:selected').text();
                 $btn.prop('disabled', true).text('Applying...');
                 $.ajax({
                     url: '/upload_model',
@@ -416,7 +438,24 @@
                     success: function(response) {
                         showNotification(response.message || 'Model applied successfully!');
                         $btn.prop('disabled', false).text('Apply Selected Model');
-                        // Mencegah direct ke /upload_model
+                        // Tampilkan kedua form berdampingan (horizontal)
+                        $('#uploadStockCard').fadeIn();
+                        $('#modelSelectCard').css({
+                            'margin': '',
+                            'align-self': '',
+                            'box-shadow': ''
+                        });
+                        $('.dashboard-forms').css({
+                            'display': 'flex',
+                            'flex-direction': 'row',
+                            'align-items': 'stretch',
+                            'justify-content': 'center',
+                            'min-height': '',
+                            'gap': '2.5rem'
+                        });
+                        // Tampilkan info model terpilih
+                        $('#selectedModelName').text(selectedModelText);
+                        $('#selectedModelInfo').fadeIn();
                     },
                     error: function(xhr) {
                         let msg = 'Failed to apply model.';
